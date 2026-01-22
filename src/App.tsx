@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import Scatterplot from './components/Scatterplot';
+import Tadpole from './components/Tadpole';
 
 function App() {
-  const [data, setData] = useState<number[][]>([]);
+  const [data, setData] = useState<number[][]>([[50,50]]);
   const [numPoints, setNumPoints] = useState<number>(10);
   const numPointsRef = useRef(10);
 
@@ -18,7 +19,7 @@ function App() {
       numPointsRef.current = 0;
     }
   }
-
+  
   function genData() {
     const newData: number[][] = [];
     for (let i = 0; i < numPointsRef.current; i++) {
@@ -29,13 +30,16 @@ function App() {
     setData(newData);
   }
 
-
+  
+  
   return (
     <>
       <div className='w-full h-screen flex flex-wrap justify-center place-items-center border-4 '>
         <div className='w-250 text-center'> Current points: {numPoints} </div>
         <div className='w-250 h-150 border-4 flex-none'>
-          <Scatterplot data={data}/>
+          <svg className='w-full h-full'>
+            {data.map((i,index) => ( <Tadpole key={`${index}`+Date.now()} vx={5} vy={1} px={i[0]} py={i[1]} />))}
+          </svg>
         </div>
         <div className='w-fit min-w-1/4 h-fit flex justify-between gap-4'>
           <button className='border-2 rounded-md px-2' onClick={genData}>Generate New Dataset</button>
