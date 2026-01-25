@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
+import { line } from 'd3';
 import Scatterplot from './components/Scatterplot';
 import Tadpole from './components/Tadpole';
 
 function App() {
-  const [data, setData] = useState<number[][]>([[50,50]]);
+  const [data, setData] = useState<[number,number][]>([[50,50]]);
   const [numPoints, setNumPoints] = useState<number>(10);
   const numPointsRef = useRef(10);
 
@@ -21,16 +22,16 @@ function App() {
   }
   
   function genData() {
-    const newData: number[][] = [];
+    const newData: [number,number][] = [];
     for (let i = 0; i < numPointsRef.current; i++) {
       const x = Math.floor(Math.random() * 1000);
       const y = Math.floor(Math.random() * 600);
       newData.push([x,y]);
     }
     setData(newData);
+    
   }
 
-  
   
   return (
     <>
@@ -38,7 +39,7 @@ function App() {
         <div className='w-250 text-center'> Current points: {numPoints} </div>
         <div className='w-250 h-150 border-4 flex-none'>
           <svg className='w-full h-full'>
-            {data.map((i,index) => ( <Tadpole key={`${index}`+Date.now()} vx={5} vy={1} px={i[0]} py={i[1]} />))}
+            {data.map((i,index) => ( <Tadpole key={`${index}`+Date.now()} vx={Math.random()*2} vy={Math.random()*2} px={i[0]} py={i[1]} />))}
           </svg>
         </div>
         <div className='w-fit min-w-1/4 h-fit flex justify-between gap-4'>
