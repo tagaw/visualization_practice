@@ -1,11 +1,33 @@
-import { use, useEffect, useRef, useState } from "react";
-import { curveBasis, line, path } from "d3";
+import React, { useEffect, useRef, useState } from "react";
+import { line } from "d3-shape";
+import { path } from "d3";
 
-export type props = { vx: number, vy: number, px: number, py: number };
+export type props = { 
+    vx: number, 
+    vy: number, 
+    px: number, 
+    py: number, 
+    target: React.RefObject<[number, number] | null>,
+    flags: React.RefObject<boolean[]>, 
+    id: number 
+ };
 
-export default function Tadpole({ vx, vy, px, py }: props) {
+function getAngle(currX: number, currY: number,targetX: number, targetY: number) {
+    return Math.atan2(targetY - currY, targetX - currX);
+}
+
+function updateDx(vx: number, angle: number) {
+    return vx * (Math.cos(angle));
+}
+
+function updateDy(vy: number, angle: number) {
+    return vy * (Math.sin(angle));
+}
+
+export default function Tadpole({ vx, vy, px, py, target, flags, id }: props) {
     const headLength = 5;
     const tailLength = 15;
+    const pathUpdateInterval = Math.random() * 150 + 100;
 
     const velX = useRef(vx);
     const velY = useRef(vy);
@@ -18,26 +40,14 @@ export default function Tadpole({ vx, vy, px, py }: props) {
     const pathYRef = useRef<number[]>(new Array(tailLength).fill(py));
 
     const swayRef = useRef(0);
+    const updateIntervalRef = useRef(pathUpdateInterval);
 
-    
 
     function headXOffset() {
         return headLength * Math.cos(Math.atan2(velY.current, velX.current));
     }
     function headYOffset() {
         return headLength * Math.sin(Math.atan2(velY.current, velX.current));
-    }
-    function tailXOffset() {
-        return -75 * Math.cos(Math.atan2(velY.current, velX.current));
-    }
-    function tailYOffset() {
-        return -75 * Math.sin(Math.atan2(velY.current, velX.current));
-    }
-    function bodyXOffset() {
-        return -15 * Math.cos(Math.atan2(velY.current, velX.current));
-    }
-    function bodyYOffset() {
-        return -15 * Math.sin(Math.atan2(velY.current, velX.current));
     }
     
     useEffect(() => { 
@@ -46,18 +56,38 @@ export default function Tadpole({ vx, vy, px, py }: props) {
         let frameId: number;
 
         const tick = () => {    
-            let dx = velX.current;
-            let dy = velY.current;
+            let dx: number, dy:number, speed:number;
+            if (updateIntervalRef.current <= 0) {
+                updateIntervalRef.current = pathUpdateInterval;
+                if (target.current) {
+                    dx = velX.current;
+                    dy = velY.current;
+                    
+                    speed = Math.sqrt(dx * dx + dy * dy);
+
+                    const [tx, ty] = target.current;
+                    const angleToTarget = getAngle(pathXRef.current[0], pathYRef.current[0], tx, ty);
+                    
+                    velX.current = updateDx(speed, angleToTarget);
+                    velY.current = updateDy(speed, angleToTarget);
+
+                }
+            }
+
+            dx = velX.current;
+            dy = velY.current;
 
             pathXRef.current[0] += dx;
             pathYRef.current[0] += dy;
 
             let x = pathXRef.current[0];
             let y = pathYRef.current[0];
-            let speed = Math.sqrt(dx * dx + dy * dy);
+            speed = Math.sqrt(dx * dx + dy * dy);
+            updateIntervalRef.current -= speed;
 
-            const inc = speed * 10;
-            const stretch = -5 - speed / 3;
+
+            const inc = speed * 12;
+            const stretch = -5- speed/5;
 
 
             if (x < 0 || x > 1000) {
@@ -70,14 +100,26 @@ export default function Tadpole({ vx, vy, px, py }: props) {
             for (let i = 1; i < tailLength; i++) {
                 const vx = x - pathXRef.current[i];
                 const vy = y - pathYRef.current[i];
+
                 swayRef.current += inc
-                const oscillation = Math.sin((swayRef.current + i * 3) / 1000) / (speed);
-                pathXRef.current[i] = (x += dx / speed * stretch) - dy * oscillation;
-                pathYRef.current[i] = (y += dy / speed * stretch) + dx * oscillation;
-                speed = Math.sqrt((dx = vx) * dx + (dy = vy) * dy);
+                const oscillation = Math.sin((swayRef.current + i * 10) / 700) / (speed);
+
+                x += dx / speed * stretch;
+                y += dy / speed * stretch;
+
+                pathXRef.current[i] = x - dy * oscillation;
+                pathYRef.current[i] = y + dx * oscillation;
+
+                dx = vx;
+                dy = vy;
+                
+                speed = Math.sqrt(dx * dx + dy * dy);
             }
-
-
+            
+            if (target.current && !flags.current[id]) {
+                // Signal that this tadpole has reached the target
+                flags.current[id] = true;
+            }
             // Animate Head
             headRef.current?.setAttribute("x1", pathXRef.current[0].toString());
             headRef.current?.setAttribute("y1", pathYRef.current[0].toString());
