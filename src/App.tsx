@@ -1,19 +1,20 @@
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 import Pond from './components/Pond';
 
 export type props = {
   pond: JSX.Element;
 }
 
+
+
 function App() {
-  const [data, setData] = useState<[number,number][]>([]);
   const [numPoints, setNumPoints] = useState<number>(10);
   const numPointsRef = useRef(10);
 
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = Number(e.target.value);
     if (!isNaN(val))  {
-      const valClamped = Math.min(Math.max(val, 0), 1000);
+      const valClamped = Math.min(Math.max(val, 0), 500);
 
       numPointsRef.current = valClamped;
     } else {
@@ -21,33 +22,29 @@ function App() {
     }
   }
   
-  function genData() {
-    const newData: [number,number][] = [];
-    for (let i = 0; i < numPointsRef.current; i++) {
-      const x = Math.floor(Math.random() * 1000);
-      const y = Math.floor(Math.random() * 600);
-      newData.push([x,y]);
-    }
-    setData(newData);
+  function handleNewCount() {
+    if (numPoints == numPointsRef.current) 
+      return;
     setNumPoints(numPointsRef.current);
-    
   }
 
-  useEffect(() => {
-    genData();
-  }, []);
-  
+
   return (
     <>
       <div className='w-full h-screen flex flex-wrap justify-center place-items-center border-4 '>
-        <div className='w-250 text-center'> Current points: {numPoints} </div>
-          <Pond data={data} />
-          <button className='border-2 rounded-md px-2' onClick={genData}>Generate New Dataset</button>
+        <div className='w-250 text-center flex justify-center gap-4 mb-4'> 
+          <p>Current points: {numPoints} </p>
+          <p>Current food: {}</p>
+        </div>
+        <Pond tadpoleCt={numPoints} />
+        <div className='w-full flex justify-center gap-4'>
+          <button className='border-2 rounded-md px-2' onClick={handleNewCount}>Update Tadpole Count</button>
           <span>
             Number of Datapoints:
-            <input className='border-2 invalid:border-red-500 rounded-md ml-1' type="text" placeholder='10 (Valid 0 - 1000)' pattern='^[0-9]+$' onChange={onInput}/>
+            <input className='border-2 invalid:border-red-500 rounded-md ml-1' type="text" placeholder='10 (Valid 0 - 500)' pattern='^[0-9]+$' onChange={onInput}/>
           </span>
         </div>
+      </div>
     </>
   )
 }
