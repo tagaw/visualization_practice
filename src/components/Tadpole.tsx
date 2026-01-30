@@ -2,8 +2,6 @@ import React, { useEffect, useRef } from "react";
 import { line } from "d3-shape";
 
 export type props = { 
-    velocity: [number, number]; // Velocity and position are mutable to communicate tadpole state with parent Pond component
-    position: [number, number];
     target: React.RefObject<[number, number] | null>,
     flags: React.RefObject<{flagArr: boolean[]; flagCt: number}>, 
     id: number 
@@ -21,12 +19,17 @@ function updateDx(vx: number, angle: number) {
 function updateDy(vy: number, angle: number) {
     return vy * (Math.sin(angle));
 }
+function genRandomSpeed() {
+    let dir = Math.random() > 0.5 ? 1 : -1;
+    return dir * (Math.random() + 0.5);
+}
 
-export default function Tadpole({ velocity, position, target, flags, id }: props) {
+export default function Tadpole({ target, flags, id }: props) {
     // Tadpole component represents a single tadpole in the pond
     // Each tadpole object tracks its own state and animation loop
     // Animation is done using requestAnimationFrame and direct SVG manipulation
-    // Communication with the pond is done through mutable props / refs 
+
+    // Communication with the pond is done through ref props
     // to avoid breaking the animation loop between rerenders
 
     // Tadpole Constants
@@ -36,12 +39,16 @@ export default function Tadpole({ velocity, position, target, flags, id }: props
 
     // Refs for positional values. 
     // used so that animation is independent from React render cycle
-    // TODO: Refactor to use props directly
-    const velX = useRef(velocity[0]);
-    const velY = useRef(velocity[1]);
-    const pathXRef = useRef<number[]>(new Array(tailLength).fill(position[0]));
-    const pathYRef = useRef<number[]>(new Array(tailLength).fill(position[1]));
+    const velX = useRef(genRandomSpeed());
+    const velY = useRef(genRandomSpeed());
+    // these refs are used to maintain random wandering when the pond state changes (mainly when target is cleared)
+    const prevVelX = useRef(velX.current); 
+    const prevVelY = useRef(velY.current);
+
+    const pathXRef = useRef<number[]>(new Array(tailLength).fill(Math.random() * 1000));
+    const pathYRef = useRef<number[]>(new Array(tailLength).fill(Math.random() * 600));
     
+
     // SVG Element Refs for direct manipulation
     const headRef = useRef<SVGLineElement | null>(null);
     const bodyRef = useRef<SVGPathElement | null>(null);
@@ -63,8 +70,6 @@ export default function Tadpole({ velocity, position, target, flags, id }: props
     useEffect(() => { 
         // Each tick increments the tadpole forward based on its velocity
         // If a target is set, the tadpole will adjust its velocity to move towards the target
-        // At each change in velocity/position, the tadpole will communicate changes with the pond parent
-        // to prevent breaking the animation if parent state changes without affecting the tadpole
 
         // d3 used to quickly generate a line from array of points
         const lineGenerator = line().x((_,i) => pathXRef.current[i]).y((_,i) => pathYRef.current[i]);
@@ -77,6 +82,7 @@ export default function Tadpole({ velocity, position, target, flags, id }: props
             let dx: number, dy:number, speed:number;
             // Tadpole will check to adjust its vector at random intervals to mimic more natural movement
             // Beneficial effect of swarming target once it is reached (was the initial intention)
+            
             if (updateIntervalRef.current <= 0) {
                 updateIntervalRef.current = pathUpdateInterval;
                 if (target.current) {
@@ -90,9 +96,9 @@ export default function Tadpole({ velocity, position, target, flags, id }: props
                     
                     velX.current = updateDx(speed, angleToTarget);
                     velY.current = updateDy(speed, angleToTarget);
-
-                    velocity[0] = velX.current;
-                    velocity[1] = velY.current;
+                } else {
+                    velX.current = prevVelX.current;
+                    velY.current = prevVelY.current;
                 }
             }
 
@@ -102,9 +108,6 @@ export default function Tadpole({ velocity, position, target, flags, id }: props
 
             pathXRef.current[0] += dx;
             pathYRef.current[0] += dy;
-
-            position[0] = pathXRef.current[0];
-            position[1] = pathYRef.current[0];
 
             let x = pathXRef.current[0];
             let y = pathYRef.current[0];
@@ -118,11 +121,15 @@ export default function Tadpole({ velocity, position, target, flags, id }: props
             // TODO: remove hardcoded pond dimensions
             if (x < 0 || x > 1000) {
                 velX.current *= -1;
-                velocity[0] = velX.current;
+                if (!target.current) {
+                    prevVelX.current = velX.current;
+                }
             }
             if (y < 0 || y > 600) {
                 velY.current *= -1;
-                velocity[1] = velY.current;
+                if (!target.current) {
+                    prevVelY.current = velY.current;
+                }
             }
             
             // body and tail ossillation animation, the body is simply a 'short and stubby' tail

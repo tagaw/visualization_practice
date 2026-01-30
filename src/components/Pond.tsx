@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import Tadpole from "./Tadpole";
 
 export type props = { 
@@ -10,24 +10,7 @@ type pondFlagType = {
     flagCt: number
 }
 
-function genRandomSpeed() {
-    let dir = Math.random() > 0.5 ? 1 : -1;
-    return dir * (Math.random() + 0.5);
-}
-
-function genData(numPoints: number) {
-  const newData: [number,number][] = [];
-  for (let i = 0; i < numPoints; i++) {
-    const x = Math.floor(Math.random() * 1000);
-    const y = Math.floor(Math.random() * 600);
-    newData.push([x,y]);
-  }
-  return newData;
-}
-
 export default function Pond({tadpoleCt} : props) {
-    const [tadpolesPosState, setTadpolesPosState] = useState<[number,number][]>(genData(tadpoleCt));
-    const [tadpolesVelState, setTadpolesVelState] = useState<[number,number][]>(new Array(tadpoleCt).fill([0,0]).map(() => [genRandomSpeed(), genRandomSpeed()]));
 
     const flagsRef = useRef<pondFlagType>({flagArr: new Array(tadpoleCt).fill(false), flagCt: tadpoleCt});
     const targetRef = useRef<[number, number] | null>(null); 
@@ -51,11 +34,7 @@ export default function Pond({tadpoleCt} : props) {
 
     useEffect(() => { 
       // when tadpole count changes, reset the pond state
-      // then generate new positions and velocities
       cleanupState();
-
-      setTadpolesPosState(genData(tadpoleCt));
-      setTadpolesVelState(new Array(tadpoleCt).fill([0,0]).map(() => [genRandomSpeed(), genRandomSpeed()]));
 
       return () => {
         cleanupState();
@@ -64,11 +43,10 @@ export default function Pond({tadpoleCt} : props) {
 
     function dropFood(event: React.MouseEvent<SVGSVGElement, MouseEvent>) {
       if (!targetRef.current) {
-        const svg = canvasRef.current;
-        svg?.getBoundingClientRect();
+        const boundingBox = canvasRef.current?.getBoundingClientRect();
 
-        const x = event.clientX - (svg?.getBoundingClientRect().left || 0);
-        const y = event.clientY - (svg?.getBoundingClientRect().top || 0);
+        const x = event.clientX - (boundingBox?.left || 0);
+        const y = event.clientY - (boundingBox?.top || 0);
 
         targetRef.current = [x, y];
         
@@ -102,7 +80,7 @@ export default function Pond({tadpoleCt} : props) {
         <div className='w-250 h-150 border-4 flex-none'>
           <svg ref={canvasRef} className='w-full h-full' onClick={dropFood}>
             <circle ref={foodRef} r={0} fill="brown" />
-            {tadpolesPosState.map((i,index) => ( <Tadpole key={`${index}`+Date.now()} velocity={tadpolesVelState[index]} position={i} target={targetRef} flags={flagsRef} id={index} />))}
+            {new Array(tadpoleCt).fill(0).map((_,index) => (<Tadpole key={index}  target={targetRef} flags={flagsRef} id={index} />))}
           </svg>
         </div>
         </>
