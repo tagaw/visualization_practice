@@ -12,7 +12,13 @@ type pondFlagType = {
 
 export default function Pond({tadpoleCt} : props) {
   // TODO: make tadpoles reactive to Pond state
-  const foodCount = tadpoleCt*Math.ceil(10);
+
+  // Constants and ref to clean up animation frame
+  const foodSize = Math.sqrt(tadpoleCt) * 1.25 + 5
+  const foodCount = tadpoleCt*Math.ceil(2.25);
+
+  const frameId = useRef<number | null>(null);
+
 
   // Food and its state | ref is used for direct SVG manipulation for performance 
   const foodRef = useRef<SVGCircleElement | null>(null);
@@ -27,14 +33,6 @@ export default function Pond({tadpoleCt} : props) {
   // used to get position of click interaction
   const canvasRef = useRef<SVGSVGElement | null>(null);
   
-
-  // Constants and ref to clean up animation frame
-  
-  const foodSize = Math.sqrt(tadpoleCt) * 1.25 + 5;
-  const foodDecrement = foodSize / tadpoleCt;
-
-  const frameId = useRef<number | null>(null);
-
 
   function cleanupState() {
     setTarget(null);
@@ -67,8 +65,8 @@ export default function Pond({tadpoleCt} : props) {
       foodRef.current?.setAttribute("r", foodSize.toString());
       function foodAnimation() {
           if (flagsRef.current.flagCt > 0) {
-            const pctEaten = (foodCount - flagsRef.current.flagCt)/100;
-            foodRef.current?.setAttribute("r", (foodSize - (pctEaten * foodSize)).toString());
+            const pctEaten = flagsRef.current.flagCt/foodCount;
+            foodRef.current?.setAttribute("r", (foodSize * (pctEaten)).toString());
             frameId.current = requestAnimationFrame(foodAnimation);
           } else {
             setTarget(null);
