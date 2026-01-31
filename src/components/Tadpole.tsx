@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { line } from "d3-shape";
 
 export type props = { 
-    target: React.RefObject<[number, number] | null>,
+    target: [number, number] | null,
     flags: React.RefObject<{flagArr: boolean[]; flagCt: number}>, 
     id: number 
  };
@@ -65,7 +65,6 @@ export default function Tadpole({ target, flags, id }: props) {
     function headYOffset() {
         return headLength * Math.sin(Math.atan2(velY.current, velX.current));
     }
-    
     // will run on mount/dismount
     useEffect(() => { 
         // Each tick increments the tadpole forward based on its velocity
@@ -85,13 +84,13 @@ export default function Tadpole({ target, flags, id }: props) {
             
             if (updateIntervalRef.current <= 0) {
                 updateIntervalRef.current = pathUpdateInterval;
-                if (target.current) {
+                if (target) {
                     dx = velX.current;
                     dy = velY.current;
                     
                     speed = Math.sqrt(dx * dx + dy * dy);
 
-                    const [tx, ty] = target.current;
+                    const [tx, ty] = target;
                     const angleToTarget = getAngle(pathXRef.current[0], pathYRef.current[0], tx, ty);
                     
                     velX.current = updateDx(speed, angleToTarget);
@@ -121,13 +120,13 @@ export default function Tadpole({ target, flags, id }: props) {
             // TODO: remove hardcoded pond dimensions
             if (x < 0 || x > 1000) {
                 velX.current *= -1;
-                if (!target.current) {
+                if (!target) {
                     prevVelX.current = velX.current;
                 }
             }
             if (y < 0 || y > 600) {
                 velY.current *= -1;
-                if (!target.current) {
+                if (!target) {
                     prevVelY.current = velY.current;
                 }
             }
@@ -154,14 +153,17 @@ export default function Tadpole({ target, flags, id }: props) {
 
             // Signal that this tadpole has reached the target
             // TODO: use a bitset to reduce memory usage, anticipate for multiple concurrent targets
-            if (target.current 
-                && !flags.current.flagArr[id] 
-                && Math.abs(pathXRef.current[0] - target.current[0]) < 1 
-                && Math.abs(pathYRef.current[0] - target.current[1]) < 1) {
-                flags.current.flagArr[id] = true;
-                flags.current.flagCt -= 1;
-            }
-
+            if (target) { 
+                if (!flags.current.flagArr[id]) {
+                    if (Math.abs(pathXRef.current[0] - target[0]) < 1 && Math.abs(pathYRef.current[0] - target[1]) < 1) {
+                        flags.current.flagArr[id] = true;
+                        flags.current.flagCt -= 1;
+                    }
+                }
+                else if (Math.abs(pathXRef.current[0] - target[0]) >= 1 && Math.abs(pathYRef.current[0] - target[1]) >= 1) {
+                    flags.current.flagArr[id] = false;
+                }    
+            } 
             // Animate Head
             headRef.current?.setAttribute("x1", pathXRef.current[0].toString());
             headRef.current?.setAttribute("y1", pathYRef.current[0].toString());
@@ -182,7 +184,7 @@ export default function Tadpole({ target, flags, id }: props) {
             // cleanup on unmount
             cancelAnimationFrame(frameId);
         };
-    }, []);
+    }, [target]);
 
     
 
