@@ -3,8 +3,7 @@ import { line } from "d3-shape";
 
 export type props = { 
     target: [number, number] | null,
-    flags: React.RefObject<{flagArr: boolean[]; flagCt: number}>, 
-    id: number 
+    flags: React.RefObject<number>,
  };
 
 // General helper functions
@@ -24,7 +23,7 @@ function genRandomSpeed() {
     return dir * (Math.random() + 0.5);
 }
 
-export default function Tadpole({ target, flags, id }: props) {
+export default function Tadpole({ target, flags }: props) {
     // Tadpole component represents a single tadpole in the pond
     // Each tadpole object tracks its own state and animation loop
     // Animation is done using requestAnimationFrame and direct SVG manipulation
@@ -41,6 +40,7 @@ export default function Tadpole({ target, flags, id }: props) {
     // used so that animation is independent from React render cycle
     const velX = useRef(genRandomSpeed());
     const velY = useRef(genRandomSpeed());
+
     // these refs are used to maintain random wandering when the pond state changes (mainly when target is cleared)
     const prevVelX = useRef(velX.current); 
     const prevVelY = useRef(velY.current);
@@ -57,6 +57,7 @@ export default function Tadpole({ target, flags, id }: props) {
     // Used to track tail sway and targeting behavior
     const swayRef = useRef(0);
     const updateIntervalRef = useRef(pathUpdateInterval);
+    const canEatRef = useRef(true);
 
     // Helper functions to correctly draw the direction of the head
     function headXOffset() {
@@ -154,14 +155,14 @@ export default function Tadpole({ target, flags, id }: props) {
             // Signal that this tadpole has reached the target
             // TODO: use a bitset to reduce memory usage, anticipate for multiple concurrent targets
             if (target) { 
-                if (!flags.current.flagArr[id]) {
+                if (canEatRef.current) {
                     if (Math.abs(pathXRef.current[0] - target[0]) < 1 && Math.abs(pathYRef.current[0] - target[1]) < 1) {
-                        flags.current.flagArr[id] = true;
-                        flags.current.flagCt -= 1;
+                        canEatRef.current = false;
+                        flags.current -= 1;
                     }
                 }
                 else if (Math.abs(pathXRef.current[0] - target[0]) >= 1 && Math.abs(pathYRef.current[0] - target[1]) >= 1) {
-                    flags.current.flagArr[id] = false;
+                    canEatRef.current = true;
                 }    
             } 
             // Animate Head

@@ -5,10 +5,6 @@ export type props = {
     tadpoleCt: number; 
 };
 
-type pondFlagType = {
-    flagArr: boolean[];
-    flagCt: number
-}
 
 export default function Pond({tadpoleCt} : props) {
   // TODO: make tadpoles reactive to Pond state
@@ -27,7 +23,7 @@ export default function Pond({tadpoleCt} : props) {
 
   // refs to allow tadpoles to update pond state
   // TODO: make use of state (maybe?)
-  const flagsRef = useRef<pondFlagType>({flagArr: new Array(tadpoleCt).fill(false), flagCt: foodCount});
+  const foodFlagRef = useRef<number>(foodCount);
   const [target,setTarget] = useState<[number, number] | null>(null); 
 
   // used to get position of click interaction
@@ -37,7 +33,7 @@ export default function Pond({tadpoleCt} : props) {
   function cleanupState() {
     setTarget(null);
     foodRef.current?.setAttribute("r", "0");
-    flagsRef.current = {flagArr: new Array(tadpoleCt).fill(false), flagCt: foodCount};
+    foodFlagRef.current = foodCount;
     frameId.current && cancelAnimationFrame(frameId.current);
   }
 
@@ -64,15 +60,14 @@ export default function Pond({tadpoleCt} : props) {
 
       foodRef.current?.setAttribute("r", foodSize.toString());
       function foodAnimation() {
-          if (flagsRef.current.flagCt > 0) {
-            const pctEaten = flagsRef.current.flagCt/foodCount;
+          if (foodFlagRef.current > 0) {
+            const pctEaten = foodFlagRef.current/foodCount;
             foodRef.current?.setAttribute("r", (foodSize * (pctEaten)).toString());
             frameId.current = requestAnimationFrame(foodAnimation);
           } else {
             setTarget(null);
             foodRef.current?.setAttribute("r", "0");
-            flagsRef.current.flagArr = flagsRef.current.flagArr.map(() => false);
-            flagsRef.current.flagCt = foodCount;
+            foodFlagRef.current = foodCount;
           }
       }
       frameId.current = requestAnimationFrame(foodAnimation);
@@ -85,7 +80,7 @@ export default function Pond({tadpoleCt} : props) {
       <div className='w-250 h-150 border-4 flex-none'>
         <svg ref={canvasRef} className='w-full h-full' onClick={dropFood}>
           <circle ref={foodRef} cx={foodX} cy={foodY} r={0} fill="brown" />
-          {new Array(tadpoleCt).fill(0).map((_,index) => (<Tadpole key={index}  target={target} flags={flagsRef} id={index} />))}
+          {new Array(tadpoleCt).fill(0).map((_,index) => (<Tadpole key={index}  target={target} flags={foodFlagRef}/>))}
         </svg>
       </div>
       </>
