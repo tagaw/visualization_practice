@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { line } from "d3-shape";
+import type { foodTarget } from "./Pond";
+import { Heap } from "../datastructures/MinHeap";
 
 export type props = { 
-    target: [number, number] | null,
-    flags: React.RefObject<number>,
+    target: foodTarget,
  };
 
 // General helper functions
@@ -23,7 +24,12 @@ function genRandomSpeed() {
     return dir * (Math.random() + 0.5);
 }
 
-export default function Tadpole({ target, flags }: props) {
+function dist(x1: number, y1: number, x2: number, y2: number) {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+
+export default function Tadpole({ target }: props) {
     // Tadpole component represents a single tadpole in the pond
     // Each tadpole object tracks its own state and animation loop
     // Animation is done using requestAnimationFrame and direct SVG manipulation
@@ -48,7 +54,6 @@ export default function Tadpole({ target, flags }: props) {
     const pathXRef = useRef<number[]>(new Array(tailLength).fill(Math.random() * 1000));
     const pathYRef = useRef<number[]>(new Array(tailLength).fill(Math.random() * 600));
     
-
     // SVG Element Refs for direct manipulation
     const headRef = useRef<SVGLineElement | null>(null);
     const bodyRef = useRef<SVGPathElement | null>(null);
@@ -66,10 +71,30 @@ export default function Tadpole({ target, flags }: props) {
     function headYOffset() {
         return headLength * Math.sin(Math.atan2(velY.current, velX.current));
     }
-    // will run on mount/dismount
+
+    // Custom comparison function for use in queue, calculates distance from tadpole to a target
+    function distToTarget(target: foodTarget) {
+        if (!(target && target.position)) return Infinity;
+        return dist(pathXRef.current[0], pathYRef.current[0], target.position![0], target.position![1]);
+    }
+
+    // priority queue to quickly select nearest target
+    const minQueue = useRef<Heap<foodTarget>>(new Heap<foodTarget>(100, (a,b) => distToTarget(a) - distToTarget(b)));
+    const currentTarget = useRef<foodTarget>(target);
+
+    // TODO: fix this... rethink how tadpoles manage state for a clean reset on rerender.
+    useEffect(() => { // dependency uniquely id's targets based on position + target#.
+        if (target.position) {
+            minQueue.current.heappush(target);
+        } else {
+            while (minQueue.current.heappop());
+            currentTarget.current = target;       
+        }
+    }, [`${target.position}+${target.id}`]); 
+
+    // Animation loop effect, runs on mount
     useEffect(() => { 
         // Each tick increments the tadpole forward based on its velocity
-        // If a target is set, the tadpole will adjust its velocity to move towards the target
 
         // d3 used to quickly generate a line from array of points
         const lineGenerator = line().x((_,i) => pathXRef.current[i]).y((_,i) => pathYRef.current[i]);
@@ -80,18 +105,25 @@ export default function Tadpole({ target, flags }: props) {
         // animation loop
         const tick = () => {    
             let dx: number, dy:number, speed:number;
-            // Tadpole will check to adjust its vector at random intervals to mimic more natural movement
-            // Beneficial effect of swarming target once it is reached (was the initial intention)
+
+            // Every frame, check if the current target is still valid (not eaten by another tadpole). 
+            // If not, pop from the queue until a valid target is found or the queue is empty.
+            while (minQueue.current.head() && !minQueue.current.head()!.position) {
+                minQueue.current.heappop();
+            }
+            currentTarget.current = minQueue.current.head() || currentTarget.current;
             
+            // Tadpole will check to adjust its vector at random intervals to mimic more natural movement
+            // Beneficial effect of swarming target once it is reached 
             if (updateIntervalRef.current <= 0) {
                 updateIntervalRef.current = pathUpdateInterval;
-                if (target) {
+                if (currentTarget.current.position) {
                     dx = velX.current;
                     dy = velY.current;
                     
                     speed = Math.sqrt(dx * dx + dy * dy);
 
-                    const [tx, ty] = target;
+                    const [tx, ty] = currentTarget.current.position;
                     const angleToTarget = getAngle(pathXRef.current[0], pathYRef.current[0], tx, ty);
                     
                     velX.current = updateDx(speed, angleToTarget);
@@ -100,12 +132,12 @@ export default function Tadpole({ target, flags }: props) {
                     velX.current = prevVelX.current;
                     velY.current = prevVelY.current;
                 }
+                
             }
 
             // update positional values
             dx = velX.current;
             dy = velY.current;
-
             pathXRef.current[0] += dx;
             pathYRef.current[0] += dy;
 
@@ -121,13 +153,13 @@ export default function Tadpole({ target, flags }: props) {
             // TODO: remove hardcoded pond dimensions
             if (x < 0 || x > 1000) {
                 velX.current *= -1;
-                if (!target) {
+                if (!currentTarget.current.position) {
                     prevVelX.current = velX.current;
                 }
             }
             if (y < 0 || y > 600) {
                 velY.current *= -1;
-                if (!target) {
+                if (!currentTarget.current.position) {
                     prevVelY.current = velY.current;
                 }
             }
@@ -152,19 +184,19 @@ export default function Tadpole({ target, flags }: props) {
                 speed = Math.sqrt(dx * dx + dy * dy);
             }
 
-            // Signal that this tadpole has reached the target
-            // TODO: use a bitset to reduce memory usage, anticipate for multiple concurrent targets
-            if (target) { 
+            // Mark tadpole as having eaten its target with a cooldown
+            if (currentTarget.current.position) { 
                 if (canEatRef.current) {
-                    if (Math.abs(pathXRef.current[0] - target[0]) < 1 && Math.abs(pathYRef.current[0] - target[1]) < 1) {
+                    if (Math.abs(pathXRef.current[0] - currentTarget.current.position[0]) < 1 && Math.abs(pathYRef.current[0] - currentTarget.current.position[1]) < 1) {
                         canEatRef.current = false;
-                        flags.current -= 1;
+                        currentTarget.current.amount -= 1;
                     }
                 }
-                else if (Math.abs(pathXRef.current[0] - target[0]) >= 1 && Math.abs(pathYRef.current[0] - target[1]) >= 1) {
+                else if (Math.abs(pathXRef.current[0] - currentTarget.current.position[0]) >= 1 && Math.abs(pathYRef.current[0] - currentTarget.current.position[1]) >= 1) {
                     canEatRef.current = true;
                 }    
             } 
+
             // Animate Head
             headRef.current?.setAttribute("x1", pathXRef.current[0].toString());
             headRef.current?.setAttribute("y1", pathYRef.current[0].toString());
@@ -182,10 +214,10 @@ export default function Tadpole({ target, flags }: props) {
         // initial call to kick off animation on mount
         frameId = requestAnimationFrame(tick);
         return () => {
-            // cleanup on unmount
+            // cleanup when target switches
             cancelAnimationFrame(frameId);
         };
-    }, [target]);
+    }, []);
 
     
 
